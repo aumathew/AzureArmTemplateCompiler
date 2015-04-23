@@ -1,6 +1,6 @@
 # Arm Template Compiler
 
-This document gives a functional overview of an ARM Template compiler called ARML++. This has the capability to compile ARM templates into its expanded versions as well as the ability to execute javascript code to aid in templating. This doc assumes that the reader is familiar with the arm template language specified in https://msdn.microsoft.com/en-us/library/azure/dn835138.aspx  . 
+This document gives a functional overview of an ARM Template compiler called ARML++. This has the capability to compile ARM templates into its expanded versions as well as the ability to execute javascript code to aid in templating the template. This doc assumes that the reader is familiar with the arm template language specified in https://msdn.microsoft.com/en-us/library/azure/dn835138.aspx  . 
 
 ## What is Arml++?
 
