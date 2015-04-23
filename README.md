@@ -6,21 +6,44 @@ This is a template compiler for azure resource manager (ARM) template language. 
 
 It is mostly a superset of the arm template language published on MSDN. This means that all valid arm templates are valid arml++ templates. The output of compiling an arml++ template is an arm template that is understood by ARM. The main advantage of arml++ templates that one can have very small template files by encoding the logic of generating them rather than large templates. The only difference is that arml++ templates have an extra section called scripts. Scripts are ECMA script files that can contain custom functions and execute JavaScript code. These custom functions can be invoked as part of arm template expressions addition to the built-in arm functions like concat(), resourceId() etc. So now anything you can think of with in an expression “[foo()]”  is fair game.
 
-Here is a snipped to create a public ip dns name with a guid
+#### Here is a template to create a public ip dns name with a guid.
 
 ```javascript
- /*Create a public IP with a dnsname lable for our HeadNode LB*/
 {
-    "apiVersion": "2014-12-01-preview",
-    "type": "Microsoft.Network/publicIPAddresses",
-    "name": "randomIp",
-    "location": "[parameters('Location')]",
-    "properties": {
-        "publicIPAllocationMethod": "Dynamic",
-        "dnsSettings": {
-            "domainNameLabel": "[generateUUID()]"
+	/*
+    A template to create a public IP address with a guid as a dns label.
+	*/
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "Location": {
+            "type": "string",
+            "defaultValue": "east us"
         }
-    }
+    },
+    "scripts": {
+        "beforeResourceEval": [
+            {
+                "uri": "guid.js"
+            }
+        ]
+    },
+
+    "resources": [
+        /*Create a public IP with a dnsname lable for our HeadNode LB*/
+        {
+            "apiVersion": "2014-12-01-preview",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "randomIp",
+            "location": "[parameters('Location')]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "[generateUUID()]"
+                }
+            }
+        }
+    ]
 }
 ```
 
