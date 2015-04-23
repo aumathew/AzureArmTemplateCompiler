@@ -26,7 +26,7 @@ BeforeResourceEval scripts will be executed before resource expressions are eval
 
 ###Javascript functions available 
 
-1.	arm.log(‘some string {0}’’, ‘value’) : emits “some string value” on arml++ console
-2.	getResource(‘resourceName’) : gets resource defined by the resource name in the arml++ template
-3.	setResource(‘resourceName’, resourceObj) : adds or updates a resource defined the name resourceName in the arml++ template
-4.	parameters(), concat(), variables(), resourceId() as defined the arm template language. 
+1.	`arm.log(‘some string {0}’’, ‘value’)` : emits “some string value” on arml++ console
+2.	`getResource(‘resourceName’)` : gets resource defined by the resource name in the arml++ template
+3.	`setResource(‘resourceName’, resourceObj)` : adds or updates a resource defined the name resourceName in the arml++ template
+4.	`parameters()`, `concat()`, `variables()`, `resourceId()` as defined the arm template language. 
