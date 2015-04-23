@@ -1,10 +1,28 @@
 # Arm Template Compiler
 
-This document gives a functional overview of an ARM Template compiler called ARML++. This has the capability to compile ARM templates into its expanded versions as well as the ability to execute javascript code to aid in templating the template. This doc assumes that the reader is familiar with the arm template language specified in https://msdn.microsoft.com/en-us/library/azure/dn835138.aspx  . 
+This is a template compiler for azure resource manager (ARM) template language. This has the capability to compile ARM templates into its expanded versions as well as the ability ing templating the template. This doc assumes that the reader is familiar with the arm template language specified in https://msdn.microsoft.com/en-us/library/azure/dn835138.aspx  . 
 
 ## What is Arml++?
 
 It is mostly a superset of the arm template language published on MSDN. This means that all valid arm templates are valid arml++ templates. The output of compiling an arml++ template is an arm template that is understood by ARM. The main advantage of arml++ templates that one can have very small template files by encoding the logic of generating them rather than large templates. The only difference is that arml++ templates have an extra section called scripts. Scripts are ECMA script files that can contain custom functions and execute JavaScript code. These custom functions can be invoked as part of arm template expressions addition to the built-in arm functions like concat(), resourceId() etc. So now anything you can think of with in an expression “[foo()]”  is fair game.
+
+Here is a snipped to create a public ip dns name with a guid
+
+```javascript
+ /*Create a public IP with a dnsname lable for our HeadNode LB*/
+{
+    "apiVersion": "2014-12-01-preview",
+    "type": "Microsoft.Network/publicIPAddresses",
+    "name": "randomIp",
+    "location": "[parameters('Location')]",
+    "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+            "domainNameLabel": "[generateUUID()]"
+        }
+    }
+}
+```
 
 These JavaScript files also have access to the JSON dom that represents individual resources defined in arml++ template. This is a pretty powerful feature because the resource definitions can be dynamically modified/added or removed. Here is an example of the scripts section.
 
@@ -68,3 +86,7 @@ https://github.com/aumathew/AzureArmTemplateCompiler/blob/master/src/ArmTemplate
  2.     A template to generate Public Ip with a random guid for dns name. 
 
 https://github.com/aumathew/AzureArmTemplateCompiler/blob/master/bin/Samples/publicIp/PublicIpWithRandomizedName.json
+
+## Contributions
+
+All contributions are welcome and appreciated. 
