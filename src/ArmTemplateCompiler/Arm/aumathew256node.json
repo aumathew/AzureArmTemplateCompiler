@@ -1,0 +1,1100 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+       /*Required settings */
+       "Location": {
+            "type": "string",
+            "allowedValues": [
+                "East Asia",
+                "West US",
+                "East US"
+            ]
+        },
+        "subscriptionId": {
+            "type": "string",
+        },
+        "nodeTemplateUri": {
+            "type": "string"
+        },
+        "gwNodeTemplateUri" :{
+            "type": "string"
+        },
+        "NamePrefix": {
+            "type": "string",
+            "defaultValue" : "aumathew256node"
+        },
+        /*Optional settings*/
+        "httpPort": {
+            "defaultValue": 80,
+            "type": "int"
+        },
+        "AdminUsername": {
+            "type": "string",
+            "defaultValue": "hdiuser"
+        },
+        "AdminPassword": {
+            "type": "string",
+            "defaultValue": "HdInsight123!"
+        }
+    },
+    "variables": {
+        "virtualNetworkName": "[concat(parameters('NamePrefix'),'-vnet')]",
+        "subnetName": "subnet",
+        "dnsName": "[parameters('NamePrefix')]",
+        "gwAvailabilitySetName": "[concat(parameters('NamePrefix'),'-gw')]",
+        "gwNicPrefix": "[concat('nic-',variables('gwAvailabilitySetName'),'-')]",
+        "lbNameGW": "[concat(parameters('NamePrefix'), '-LB-GW')]",
+        "lbIPNameGW": "[concat(parameters('NamePrefix'), '-PublicIP-LB-GW')]",
+        "lbIPIDGW": "[resourceId('Microsoft.Network/publicIPAddresses',variables('lbIPNameGW'))]",
+        "lbIDGW": "[resourceId('Microsoft.Network/loadBalancers',variables('lbNameGW'))]",
+        
+        "hnAvailabilitySetName" :"[concat(parameters('NamePrefix'),'-hn')]",
+        "hnNicPrefix": "[concat('nic-',variables('hnAvailabilitySetName'),'-')]",
+        "lbNameHN": "[concat(parameters('NamePrefix'), '-LB-HN')]",
+        "lbIPNameHN": "[concat(parameters('NamePrefix'), '-PublicIP-LB-HN')]",
+        "lbIPIDHN": "[resourceId('Microsoft.Network/publicIPAddresses',variables('lbIPNameHN'))]",
+        "lbIDHN": "[resourceId('Microsoft.Network/loadBalancers',variables('lbNameHN'))]"
+    },
+    "resources": [
+        {
+            "apiVersion": "2014-12-01-preview",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('virtualNetworkName')]",
+            "location": "[parameters('Location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('subnetName')]",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    }
+                ]
+            }
+        },
+        /*Create a public IP with a dnsname lable for our Gateway LB*/
+        {
+            "apiVersion": "2014-12-01-preview",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('lbIPNameGW')]",
+            "location": "[parameters('Location')]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "[variables('dnsName')]"
+                }
+            }
+        },
+        /*Create a public IP with a dnsname lable for our HeadNode LB*/
+        {
+            "apiVersion": "2014-12-01-preview",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('lbIPNameHN')]",
+            "location": "[parameters('Location')]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "[concat(variables('dnsName'),'ssh')]"
+                }
+            }
+        },
+        /*deploy headnodes*/
+        {
+            "name": "sub-deployment-headnode",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-hn')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 2 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                                "value":[
+                                    { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                        "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodehn-0/target.vhd"},
+                                    { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                        "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodehn-5/target.vhd"}                            ]
+                    }
+                }
+            }
+},
+    
+        /*deploy workernodes*/
+        {
+            "name": "sub-deployment-wokernodes-0",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-wn-','0')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 50 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                    
+                        "value": [
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-0/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-1/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-2/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-3/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-4/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-5/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-6/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-7/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-8/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-9/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-10/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-11/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-12/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-13/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-14/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-15/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-16/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-17/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-18/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-19/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-20/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-21/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-22/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-23/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-24/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-25/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-26/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-27/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-28/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-29/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-30/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-31/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-32/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-33/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-34/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-35/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-36/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-37/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-38/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-39/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-40/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-41/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-42/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-43/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-44/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-45/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-46/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-47/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-48/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-49/target.vhd"}                          ]
+                    }
+                }
+            }
+        }
+    
+        ,
+    
+        /*deploy workernodes*/
+        {
+            "name": "sub-deployment-wokernodes-1",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-wn-','1')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 50 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                    
+                        "value": [
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-50/target.vhd"}  ,
+                                { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodewn-51/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-5/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-6/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-7/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-8/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-9/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-10/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-11/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-12/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-13/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-14/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-15/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-16/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-17/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-18/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-19/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-20/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-21/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-22/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-23/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-24/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-25/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-26/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-27/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-28/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-29/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-30/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-31/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-32/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-33/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-34/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-35/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-36/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-37/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-38/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-39/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-40/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-41/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-42/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-43/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-44/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-45/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-46/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-47/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-48/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-49/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-50/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-51/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-52/target.vhd"}                          ]
+                    }
+                }
+            }
+        }
+    
+        ,
+    
+        /*deploy workernodes*/
+        {
+            "name": "sub-deployment-wokernodes-2",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-wn-','2')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 50 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                    
+                        "value": [
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-53/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-54/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-55/target.vhd"}  ,
+                                { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodewn-56/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-10/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-11/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-12/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-13/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-14/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-15/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-16/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-17/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-18/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-19/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-20/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-21/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-22/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-23/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-24/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-25/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-26/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-27/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-28/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-29/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-30/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-31/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-32/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-33/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-34/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-35/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-36/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-37/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-38/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-39/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-40/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-41/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-42/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-43/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-44/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-45/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-46/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-47/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-48/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-49/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-50/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-51/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-52/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-53/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-54/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-55/target.vhd"}                          ]
+                    }
+                }
+            }
+        }
+    
+        ,
+    
+        /*deploy workernodes*/
+        {
+            "name": "sub-deployment-wokernodes-3",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-wn-','3')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 50 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                    
+                        "value": [
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-56/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-57/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-58/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-59/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-60/target.vhd"}  ,
+                                { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodewn-61/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-15/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-16/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-17/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-18/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-19/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-20/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-21/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-22/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-23/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-24/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-25/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-26/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-27/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-28/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-29/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-30/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-31/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-32/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-33/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-34/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-35/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-36/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-37/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-38/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-39/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-40/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-41/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-42/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-43/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-44/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-45/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-46/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-47/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-48/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-49/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-50/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-51/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-52/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-53/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-54/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-55/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-56/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-57/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-58/target.vhd"}                          ]
+                    }
+                }
+            }
+        }
+    
+        ,
+    
+        /*deploy workernodes*/
+        {
+            "name": "sub-deployment-wokernodes-4",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-wn-','4')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 50 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                    
+                        "value": [
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-59/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-60/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-61/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-62/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-63/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-64/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-65/target.vhd"}  ,
+                                { "sourceImageUri": "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://d0easiacurrent.blob.core.windows.net/aumathew256nodewn-66/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-20/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-21/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-22/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-23/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-24/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-25/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-26/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-27/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-28/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-29/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-30/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-31/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-32/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-33/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-34/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-35/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-36/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-37/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-38/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-39/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-40/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-41/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-42/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-43/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-44/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-45/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-46/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-47/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-48/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-49/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-50/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-51/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-52/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-53/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-54/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-55/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-56/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-57/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-58/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-59/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-60/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-61/target.vhd"}                          ]
+                    }
+                }
+            }
+        }
+    
+        ,
+    
+        /*deploy workernodes*/
+        {
+            "name": "sub-deployment-wokernodes-5",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-wn-','5')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 6 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                    
+                        "value": [
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-62/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-63/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-64/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-65/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-66/target.vhd"}  ,
+                                { "sourceImageUri": "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                    "targetVhdUri": "https://e0easiacurrent.blob.core.windows.net/aumathew256nodewn-67/target.vhd"}                          ]
+                    }
+                }
+            }
+        }
+    
+    ,
+        /*deploy gateway nodes*/
+        {
+            "name": "sub-deployment-gateway",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('gwNodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-gw')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 2 },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                                "value":[
+                                    { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/gatewayNode.vhd",
+                                            "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodegw-0/target.vhd"}
+                                        ,
+                                    { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/gatewayNode.vhd",
+                                            "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodegw-2/target.vhd"}
+                            ]
+                    }
+                }
+            }
+        },
+        /*deploy zookeeper nodes*/
+        {
+            "name": "sub-deployment-zookeeper",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2015-01-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[parameters('nodeTemplateUri')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "AvailabilitySetName": { "value": "[concat(parameters('NamePrefix'),'-zk')]" },
+                    "Location": { "value": "[parameters('Location')]" },
+                    "NumberOfVirtualMachines": { "value": 3 },
+                    "VmSize": { "value": "Standard_A2" },
+                    "VirtualNetworkSettings": {
+                        "value": {
+                            "virtualNetworkName": "[variables('virtualNetworkName')]",
+                            "subnetName": "subnet"
+                        }
+                    },
+                    "VmImageSettings": {
+                                     "value":[
+                                        { "sourceImageUri": "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                                "targetVhdUri": "https://a0easiacurrent.blob.core.windows.net/aumathew256nodezk-0/target.vhd"}
+                                            ,
+                                        { "sourceImageUri": "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                                "targetVhdUri": "https://b0easiacurrent.blob.core.windows.net/aumathew256nodezk-5/target.vhd"}
+                                            ,
+                                        { "sourceImageUri": "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+                                                "targetVhdUri": "https://c0easiacurrent.blob.core.windows.net/aumathew256nodezk-10/target.vhd"}
+                            ]
+                    }
+                }
+            }
+        },
+        /*LB for GW*/
+        {
+            "apiVersion": "2014-12-01-preview",
+            "name": "[variables('lbNameGW')]",
+            "type": "Microsoft.Network/loadBalancers",
+            "location": "[parameters('Location')]",
+            "dependsOn": [
+                "Microsoft.Resources/deployments/sub-deployment-gateway",
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('lbIPNameGW'))]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LBFE",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[variables('lbIPIDGW')]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "LBBE",
+                        "properties": {
+                            "backendIPConfigurations": [ //   "nicNamePrefix": "[concat('nic-', parameters('AvailabilitySetName'),'-')]",
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/networkInterfaces', concat(variables('gwNicPrefix'),'0')),'/ipConfigurations/ipConfig1')]"
+                                },
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/networkInterfaces', concat(variables('gwNicPrefix'),'1')),'/ipConfigurations/ipConfig1')]"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "inboundNatRules": [
+                    /*For testing only*/
+                    {
+                        "name": "RDP",
+                        "properties": {
+                            "frontendIPConfigurations": [
+                                {
+                                    "id": "[concat(variables('lbIDGW'),'/frontendIPConfigurations/LBFE')]"
+                                }
+                            ],
+                            "backendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/networkInterfaces', concat(variables('gwNicPrefix'),'0')),'/ipConfigurations/ipConfig1')]"
+                            },
+                            "protocol": "tcp",
+                            "frontendPort": 3389,
+                            "backendPort": 3389,
+                            "enableFloatingIP": false
+                        }
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "name": "LBHttpRule",
+                        "properties": {
+                            "frontendIPConfigurations": [
+                                {
+                                    "id": "[concat(variables('lbIDGW'),'/frontendIPConfigurations/LBFE')]"
+                                }
+                            ],
+                            "backendAddressPool": {
+                                "id": "[concat(variables('lbIDGW'),'/backendAddressPools/LBBE')]"
+                            },
+                            "protocol": "tcp",
+                            "frontendPort": "[parameters('httpPort')]",
+                            "backendPort": "[parameters('httpPort')]",
+                            "enableFloatingIP": "false",
+                            "idleTimeoutInMinutes": "5",
+                            "probe": {
+                                "id": "[concat(variables('lbIDGW'),'/probes/httpProbe')]"
+                            }
+                        }
+                    }
+                ],
+                "probes": [
+                    {
+                        "name": "httpProbe",
+                        "properties": {
+                            "protocol": "tcp",
+                            "port": "[parameters('httpPort')]",
+                            "intervalInSeconds": "5",
+                            "numberOfProbes": "2"
+                        }
+                    }
+                ]
+            }
+        },
+        /*LB for HN*/
+        {
+            "apiVersion": "2014-12-01-preview",
+            "name": "[variables('lbNameHN')]",
+            "type": "Microsoft.Network/loadBalancers",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "Microsoft.Resources/deployments/sub-deployment-headnode",
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('lbIPNameHN'))]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LBFE",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[variables('lbIPIDHN')]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "LBBE",
+                        "properties": {
+                            "backendIPConfigurations": [
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/networkInterfaces',concat(variables('hnNicPrefix'),'0')),'/ipConfigurations/ipConfig1')]"
+                                },
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/networkInterfaces',concat(variables('hnNicPrefix'),'1')),'/ipConfigurations/ipConfig1')]"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "inboundNatRules": [
+                    {
+                        "name": "SSH1",
+                        "properties": {
+                            "frontendIPConfigurations": [
+                                {
+                                    "id": "[concat(variables('lbIDHN'),'/frontendIPConfigurations/LBFE')]"
+                                }
+                            ],
+                            "backendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/networkInterfaces',concat(variables('hnNicPrefix'),'0')),'/ipConfigurations/ipConfig1')]"
+                            },
+                            "protocol": "tcp",
+                            "frontendPort": 22,
+                            "backendPort": 22,
+                            "enableFloatingIP": false
+                        }
+                    },
+                    {
+                        "name": "SSH2",
+                        "properties": {
+                            "frontendIPConfigurations": [
+                                {
+                                    "id": "[concat(variables('lbIDHN'),'/frontendIPConfigurations/LBFE')]"
+                                }
+                            ],
+                            "backendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/networkInterfaces',concat(variables('hnNicPrefix'),'1')),'/ipConfigurations/ipConfig1')]"
+                            },
+                            "protocol": "tcp",
+                            "frontendPort": 23,
+                            "backendPort": 22,
+                            "enableFloatingIP": false
+                        }
+                    }
+                ]
+            }
+        },
+    ]
+}

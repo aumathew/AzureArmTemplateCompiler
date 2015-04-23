@@ -1,0 +1,143 @@
+﻿/*
+    A template to create N VMs within a load balancer so that they have RDP enabled on ports 3389 - 3389 + N
+*/
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "string",
+            "defaultValue": "East Asia"
+        },
+        "dnsName": {
+            "type": "string",
+            "defaultValue": "aumathewVms",
+        },
+        "numVms": {
+            "type": "int",
+            "defaultValue": 1
+        },
+        "vmSize": {
+            "type": "string",
+            "defaultValue": "Standard_A2",
+        },
+        "subscriptionId": {
+            "type": "string",
+            "defaultValue": "2843db96-7d25-4cf5-8e67-71baed52dfb7"
+        },
+        "adminUserName": {
+            "type": "string",
+            "defaultValue": "hdiUser",
+
+        },
+        "adminPassword": {
+            "type": "securestring",
+            "defaultValue": "Random123P@ssword",
+        },
+        "vmSourceImageName": {
+            "type": "string",
+            "defaultValue": "a699494373c04fc0bc8f2bb1389d6106__Windows-Server-2012-R2-201412.01-en.us-127GB.vhd"
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "a0easiacurrent"
+        },
+        "vmStorageAccountContainerNamePrefix": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('dnsName').toLowerCase(), 'vm')]"
+        }
+    },
+    "scripts": {
+        "afterResourceEval": [
+            {
+                "uri": "CreateVmAndNics.js"
+            }
+        ]
+    },
+    "variables": {
+        "vnetName": "[concat(parameters('dnsName'),'-vnet')]",
+        "subNetName": "subnet1",
+        "nicNamePrefix": "[concat(parameters('dnsName'),'nic')]",
+        "sourceImageName": "[concat('/',parameters('subscriptionId'),'/services/images/',parameters('vmSourceImageName'))]",
+    },
+    "resources": [
+        /*Create a public IP with a dnsname label for our LB*/
+        {
+            "apiVersion": "2014-12-01-preview",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "randomIp",
+            "location": "[parameters('location')]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('dnsName').toLowerCase()]"
+                }
+            }
+        },
+        /*Create a VNET with a subnet to drop all our VMs*/
+        {
+            "apiVersion": "2014-12-01-preview",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('vnetName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('subNetName')]",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    }
+                ]
+            }
+        },
+        /*
+            Nics and VMs are going to be generated using javascript
+         */
+
+        /*
+            LB for VMs. The backend address pools is going to filled in with javascript and so are the nat forwarding rules
+        */
+        {
+            "apiVersion": "2014-12-01-preview",
+            "name": "loadBalancer",
+            "type": "Microsoft.Network/loadBalancers",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/', 'randomIp')]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LBFE",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses','randomIp')]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "LBBE",
+                        "properties": {
+                            "backendIPConfigurations": [
+
+                            ]
+                        }
+                    }
+                ],
+                "inboundNatRules": [
+
+                ]
+            }
+        },
+        /*LB for HN*/
+
+    ]
+}

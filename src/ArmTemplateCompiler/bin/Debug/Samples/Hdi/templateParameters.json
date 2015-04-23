@@ -1,0 +1,41 @@
+﻿{
+    "Location": {
+        "value": "East Asia"
+    },
+    //Upload uri's of node and gw template
+    "nodeTemplateUri": {
+        "value": "https://a0easiacurrent.blob.core.windows.net/templates/nodeTemplate.json"
+    },
+    "gwNodeTemplateUri": {
+        "value": "https://a0easiacurrent.blob.core.windows.net/templates/gatewayTemplate.json"
+    },
+    //Your subscription id
+    "subscriptionId": {
+        "value": "2843db96-7d25-4cf5-8e67-71baed52dfb7"
+    },
+    "NamePrefix": {
+        "value": "aumathew4"
+    },
+    "NumberOfWorkerVms": {
+            "value": 1
+    },
+    /*Worker node VMs will be evenly spread across these Vhds as source*/
+    "LinuxVMImageUris": {
+        "value": [
+            "https://a0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+            "https://b0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+            "https://c0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+            "https://d0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+            "https://e0easiacurrent.blob.core.windows.net/vhd/clusterNode.vhd",
+        ]
+    },
+    "WindowsVMImageUris": { 
+        "value": [
+            "https://a0easiacurrent.blob.core.windows.net/vhd/gateway.vhd",
+            "https://b0easiacurrent.blob.core.windows.net/vhd/gateway.vhd",
+            "https://c0easiacurrent.blob.core.windows.net/vhd/gateway.vhd",
+            "https://d0easiacurrent.blob.core.windows.net/vhd/gateway.vhd",
+            "https://e0easiacurrent.blob.core.windows.net/vhd/gateway.vhd",
+        ]
+    }
+}

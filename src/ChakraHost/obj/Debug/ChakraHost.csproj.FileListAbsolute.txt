@@ -1,0 +1,14 @@
+C:\v8dotnet1\chakra\chakra-host-master\src\cs\bin\Debug\ChakraHost.exe
+C:\v8dotnet1\chakra\chakra-host-master\src\cs\bin\Debug\ChakraHost.pdb
+C:\v8dotnet1\chakra\chakra-host-master\src\cs\obj\Debug\ChakraHost.csprojResolveAssemblyReference.cache
+C:\v8dotnet1\chakra\chakra-host-master\src\cs\obj\Debug\ChakraHost.exe
+C:\v8dotnet1\chakra\chakra-host-master\src\cs\obj\Debug\ChakraHost.pdb
+C:\SdkTestHarness\ConsoleApplication2\ChakraHost\bin\Debug\ChakraHost.exe
+C:\SdkTestHarness\ConsoleApplication2\ChakraHost\bin\Debug\ChakraHost.pdb
+C:\SdkTestHarness\ConsoleApplication2\ChakraHost\obj\Debug\ChakraHost.exe
+C:\SdkTestHarness\ConsoleApplication2\ChakraHost\obj\Debug\ChakraHost.pdb
+D:\temp\crpv2\HelloRPs_DotNetSampleProject\HelloRPs_Clean\ArmTemplateCompiler\ChakraHost\bin\Debug\ChakraHost.pdb
+D:\temp\crpv2\HelloRPs_DotNetSampleProject\HelloRPs_Clean\ArmTemplateCompiler\ChakraHost\obj\Debug\ChakraHost.pdb
+D:\temp\crpv2\HelloRPs_DotNetSampleProject\HelloRPs_Clean\ArmTemplateCompiler\ChakraHost\bin\Debug\ChakraHost.dll
+D:\temp\crpv2\HelloRPs_DotNetSampleProject\HelloRPs_Clean\ArmTemplateCompiler\ChakraHost\obj\Debug\ChakraHost.csprojResolveAssemblyReference.cache
+D:\temp\crpv2\HelloRPs_DotNetSampleProject\HelloRPs_Clean\ArmTemplateCompiler\ChakraHost\obj\Debug\ChakraHost.dll
