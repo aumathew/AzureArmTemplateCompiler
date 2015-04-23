@@ -59,4 +59,9 @@ Shows how to dynamically add NICs, inboundNat and VMs
 
 More often than not one might need to debug javascript that is getting executed within scripts. You can launch  arml++ with -d [pid of a running visual studio instance]. Remember to launch it from an administrator command prompt. Once launched it will attach the VS instance to the arml++.exe you can then set breakpoints in your javascript files.
 
+ ### Demos
  
+ 1.     A template to create N VMs within a load balancer so that they have RDP enabled on ports 3389 - 3389 + N
+ 
+ https://github.com/aumathew/AzureArmTemplateCompiler/blob/master/src/ArmTemplateCompiler/Samples/VmsWithRdp/VmsWithLB-Rdp.json
+2.      A template to generate Public Ip with a random guid
