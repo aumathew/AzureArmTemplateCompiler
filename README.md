@@ -61,7 +61,5 @@ More often than not one might need to debug javascript that is getting executed 
 
  ### Demos
  
- 1.     A template to create N VMs within a load balancer so that they have RDP enabled on ports 3389 - 3389 + N
- 
- https://github.com/aumathew/AzureArmTemplateCompiler/blob/master/src/ArmTemplateCompiler/Samples/VmsWithRdp/VmsWithLB-Rdp.json
+ 1.     A template to create N VMs within a load balancer so that they have RDP enabled on ports 3389 - 3389 + N. https://github.com/aumathew/AzureArmTemplateCompiler/blob/master/src/ArmTemplateCompiler/Samples/VmsWithRdp/VmsWithLB-Rdp.json
 2.      A template to generate Public Ip with a random guid
