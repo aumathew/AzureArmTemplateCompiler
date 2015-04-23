@@ -50,7 +50,7 @@ Shows how to dynamically add NICs, inboundNat and VMs
 ### How do I use it?
 
 1.	To compile a template 
-Arml++.exe –t [template.json] -p [parameters.json] -r [resourceGroupName] -s [subscriptionId] -o [outputOfCompilation.json]
+`Arml++.exe –t [template.json] -p [parameters.json] -r [resourceGroupName] -s [subscriptionId] -o [outputOfCompilation.json]`
 
 
 2.	One can also emit custom trace statements from JavaScript by using `arm.log(‘’)` function. This will be emitted to the console output of arml++.exe. 
