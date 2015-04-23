@@ -97,9 +97,11 @@ Shows how to dynamically add NICs, inboundNat and VMs
 
 2.	One can also emit custom trace statements from JavaScript by using `arm.log(‘’)` function. This will be emitted to the console output of arml++.exe. 
  
-3.	To debug a template in visual studio
+3.	To debug javascript in a template in visual studio
 
-More often than not one might need to debug javascript that is getting executed within scripts. You can launch  arml++ with -d [pid of a running visual studio instance]. Remember to launch it from an administrator command prompt. Once launched it will attach the VS instance to the arml++.exe you can then set breakpoints in your javascript files.
+More often than not one might need to debug javascript that is getting executed within scripts. You can launch arml++ with `-d [pid of a running visual studio instance]`. Remember to launch it from an administrator command prompt. Once launched it will attach the VS instance to the arml++.exe you can then set breakpoints in your javascript files.
+
+![alt text](https://raw.githubusercontent.com/aumathew/AzureArmTemplateCompiler/master/ReadMeImages/debug.png "VS Debugging")
 
 ## Demos
  
@@ -113,3 +115,23 @@ https://github.com/aumathew/AzureArmTemplateCompiler/blob/master/bin/Samples/pub
 ## Contributions
 
 All contributions are welcome and appreciated. 
+
+## Known limitations
+
+1.	reference(), copyIndex(), listStorageKeys() aren't supported.
+2.	The parser doesn't handle comments within resource definitions.
+```javascript
+{
+    "apiVersion": "2014-12-01-preview",
+    //Comment is not handled
+    "type": "Microsoft.Network/publicIPAddresses",
+    "name": "randomIp",
+    "location": "[parameters('Location')]",
+    "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+            "domainNameLabel": "[generateUUID()]"
+        }
+    }
+}
+```
