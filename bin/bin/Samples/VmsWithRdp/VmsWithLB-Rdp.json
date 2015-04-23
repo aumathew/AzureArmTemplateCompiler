@@ -1,7 +1,7 @@
-﻿/*
+﻿{
+/*
     A template to create N VMs within a load balancer so that they have RDP enabled on ports 3389 - 3389 + N
 */
-{
     "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
