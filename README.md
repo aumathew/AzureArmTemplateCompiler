@@ -50,13 +50,13 @@ Shows how to dynamically add NICs, inboundNat and VMs
 ### How do I use it?
 
 1.	To compile a template 
-Arml++.exe –t <template.json> -p <parameters.json> -r <resourceGroupName> -s <subscriptionId> -o <outputOfCompilation.json>
+Arml++.exe –t [template.json] -p [parameters.json] -r [resourceGroupName] -s [subscriptionId] -o [outputOfCompilation.json]
 
 
 2.	One can also emit custom trace statements from JavaScript by using `arm.log(‘’)` function. This will be emitted to the console output of arml++.exe. 
  
 3.	To debug a template in visual studio
 
-More often than not one might need to debug javascript that is getting executed within scripts. You can launch  arml++ with -d <pid of a running visual studio instance>. Remember to launch it from an administrator command prompt. Once launched it will attach the VS instance to the arml++.exe you can then set breakpoints in your javascript files.
+More often than not one might need to debug javascript that is getting executed within scripts. You can launch  arml++ with -d [pid of a running visual studio instance]. Remember to launch it from an administrator command prompt. Once launched it will attach the VS instance to the arml++.exe you can then set breakpoints in your javascript files.
 
  
