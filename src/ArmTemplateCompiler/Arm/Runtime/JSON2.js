@@ -510,3 +510,11 @@ if (typeof JSON !== 'object') {
         };
     }
 }());
+
+
+json_parse = function (text) {
+    //We recieve clean inputs because NewtonSoft JSON
+    //So let us eval it
+    var js = eval("(function(){var js= (" + text + "); return js;})();");
+    return js;
+}

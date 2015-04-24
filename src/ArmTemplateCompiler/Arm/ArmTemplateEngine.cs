@@ -414,16 +414,16 @@ namespace ArmEngine.Arm
         {
             if (token.Type == JTokenType.String)
             {
-                return string.Format("JSON.parse(\"\\\"{0}\\\"\");",
+                return string.Format("json_parse(\"\\\"{0}\\\"\");",
                     token.ToString().Replace("\r\n", "\\\r\n"));
             }
             else if (token.Type == JTokenType.Array || token.Type == JTokenType.Object)
             {
-                return string.Format("JSON.parse(\"{0}\")", token.ToString().Replace("\"", "\\\"").Replace("\r\n", "\\\r\n"));
+                return string.Format("json_parse(\"{0}\")", token.ToString().Replace("\"", "\\\"").Replace("\r\n", "\\\r\n"));
             }
             else
             {
-                return string.Format("JSON.parse({0})", token.ToString());
+                return string.Format("json_parse({0})", token.ToString());
             }
         }
 

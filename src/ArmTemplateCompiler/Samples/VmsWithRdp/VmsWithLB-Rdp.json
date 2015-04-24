@@ -127,17 +127,15 @@
                         "name": "LBBE",
                         "properties": {
                             "backendIPConfigurations": [
-
+                                /*Backend IP configuration is going to be filled in from JavaScript*/
                             ]
                         }
                     }
                 ],
                 "inboundNatRules": [
-
+                    /*In bound NAT rules are going to be filled in from JavaScript*/
                 ]
             }
         },
-        /*LB for HN*/
-
     ]
 }
