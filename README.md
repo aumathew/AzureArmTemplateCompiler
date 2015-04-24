@@ -118,20 +118,4 @@ All contributions are welcome and appreciated.
 
 ## Known limitations
 
-1.	reference(), copyIndex(), listStorageKeys() aren't supported.
-2.	The parser doesn't handle comments within resource definitions.
-```javascript
-{
-    "apiVersion": "2014-12-01-preview",
-    //Comment is not handled
-    "type": "Microsoft.Network/publicIPAddresses",
-    "name": "randomIp",
-    "location": "[parameters('Location')]",
-    "properties": {
-        "publicIPAllocationMethod": "Dynamic",
-        "dnsSettings": {
-            "domainNameLabel": "[generateUUID()]"
-        }
-    }
-}
-```
+1.	`reference(), copyIndex(), listStorageKeys()` aren't supported.
