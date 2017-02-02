@@ -1,28 +1,81 @@
-﻿"use strict";
-
+﻿
 var subscriptionId = "0000-123213213-asd123-123136";
 var resourceGroupName = "aurg";
+var resourceGroupLocation = "westus";
 
 var base64 = arm.base64;
+var curCopyIndex = 0;
 
-function reference() {
-    throw new "The arm template compiler does not support these functions, reference(),resourceGroup(),listKeys()";
+function setCopyIndex(v) {
+    if (typeof (v) != "number") {
+        throw v + " is not a number";
+    }
+
+    curCopyIndex = v;
+}
+
+function copyIndex() {
+    if (curCopyIndex === -1) {
+        throw "there is no copy context";
+    }
+    return curCopyIndex;
 }
 
 function resourceGroup() {
-    throw new "The arm template compiler does not support these functions, reference(),resourceGroup(),listKeys()";
+    return {
+        id: "/subscriptions/" + subscriptionId + "/resourceGroups/" + resourceGroupName,
+        name: resourceGroupName,
+        location: resourceGroupLocation
+    }
 }
 
-function listKeys() {
-    throw new "The arm template compiler does not support these functions, reference(),resourceGroup(),listKeys()";
+function mul(a, b) {
+    if (typeof (a) != "number") {
+        throw a + " is not a number";
+    }
+
+    if (typeof (b) != "number") {
+        throw b + " is not a number";
+    }
+
+    return a * b;
 }
+
+function add(a, b) {
+    if (typeof (a) != "number") {
+        throw a + " is not a number";
+    }
+
+    if (typeof (b) != "number") {
+        throw b + " is not a number";
+    }
+
+    return a + b;
+}
+
+
+function toLower(str1) {
+    if (typeof (str1) != "string" || !str1) {
+        throw str1 + " is not a valid string";
+    }
+
+    return str1.toString().toLowerCase();
+}
+
+function subscription() {
+    return {
+        subscriptionId: subscriptionId
+    }
+}
+
+
 
 function resourceId(resourceType, resourceName) {
-    if (typeof (resourceType) != "string") {
+    if (typeof (resourceType) != "string" || !resourceType) {
         throw "resource type: '" + resourceType + " is not a string";
     }
 
-    if (typeof (resourceName) != "string") {
+    if (typeof (resourceName) != "string" || !resourceName) {
         throw "resource name: '" + resourceName + " is not a string";
     }
 
@@ -30,15 +83,27 @@ function resourceId(resourceType, resourceName) {
 }
 
 function concat() {
+    var hasArray = false;
     for (var i = 0; i < arguments.length; i++) {
-        if (typeof (arguments[i]) != "string") {
-            throw "argument " + i + " of concat is not a string";
+        if (Array.isArray(arguments[i])) {
+            hasArray = true;
         }
     }
+
+    if (hasArray) {
+        var ret = [];
+        for (var i = 0; i < arguments.length; i++) {
+            ret = Array.prototype.concat(ret, arguments[i]);
+        }
+        return ret;
+    }
+
     var retval = "";
-    for (i = 0; i < arguments.length; i++) {
+
+    for (var i = 0; i < arguments.length; i++) {
         retval += arguments[i];
     }
+
     return retval;
 }
 
@@ -46,7 +111,7 @@ var params = {};
 var vars = {};
 
 function parameters(paramName) {
-    if (typeof (paramName) !== "string") {
+    if (typeof (paramName) !== "string" || !paramName) {
         throw new "argument is not a string";
     }
 
@@ -58,7 +123,7 @@ function parameters(paramName) {
 }
 
 function variables(variableName) {
-    if (typeof (variableName) !== "string") {
+    if (typeof (variableName) !== "string" || !variableName) {
         throw new "argument is not a string";
     }
 
@@ -72,7 +137,7 @@ function variables(variableName) {
 var resources = [];
 
 function getResource(resourceName) {
-    if (typeof (resourceName) !== "string") {
+    if (typeof (resourceName) !== "string" || !resourceName) {
         throw new "resourceName is not a string";
     }
 
@@ -85,7 +150,7 @@ function getResource(resourceName) {
 }
 
 function setResource(resourceName, resourceObject) {
-    if (typeof (resourceName) !== "string") {
+    if (typeof (resourceName) !== "string" || !resourceName) {
         throw new "resourceName is not a string";
     }
     for (var i = 0; i < resources.length; i++) {
