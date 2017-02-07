@@ -28,7 +28,10 @@ namespace ArmEngine
             [Option('r', "ResourceGroupName", Required = true, HelpText = "ResourceGroup name that the template would be run in")]
             public string ResourceGroupName { get; set; }
 
-            [Option('d', "DebuggerPid", Required = false,  DefaultValue = -1, HelpText = "Process ID of a running visual studio instance.")]
+            [Option('l', "ResourceGroupLocation", Required = true, HelpText = "Location of the Resource Group")]
+            public string ResourceGroupLocation { get; set; }
+
+            [Option('d', "DebuggerPid", Required = false, DefaultValue = -1, HelpText = "Process ID of a running visual studio instance.")]
             public int DebuggerPid { get; set; }
 
             [Option('v', "Verbose", Required = false, DefaultValue = false, HelpText = "Verbose logs")]
@@ -41,7 +44,7 @@ namespace ArmEngine
             if (!Parser.Default.ParseArguments(args, commandLineOptions))
             {
                 var help = HelpText.AutoBuild(commandLineOptions);
-                help.Copyright = "Microsoft 2015";
+                help.Copyright = "Microsoft 2017";
                 Console.Error.WriteLine(help.ToString());
                 return;
             }
@@ -56,10 +59,11 @@ namespace ArmEngine
                 armTemplateParameters: commandLineOptions.TemplateParametersFile != null ? File.ReadAllText(commandLineOptions.TemplateParametersFile) : null,
                 workingDirectory: Path.GetDirectoryName(commandLineOptions.TemplateFile),
                 subscriptionId: commandLineOptions.SubscriptionId,
-                resourceGroupName:commandLineOptions.ResourceGroupName,
-                verboseLogging:commandLineOptions.VerboseLogging,
-                debuggerVsPid:commandLineOptions.DebuggerPid);
-       
+                resourceGroupName: commandLineOptions.ResourceGroupName,
+                resourceGroupLocation: commandLineOptions.ResourceGroupLocation,
+                verboseLogging: commandLineOptions.VerboseLogging,
+                debuggerVsPid: commandLineOptions.DebuggerPid);
+
             var evaluatedTemplate = engine.EvaluateTemplate();
             evaluatedTemplate.Scripts = null;
             File.WriteAllText(commandLineOptions.OutputFile, JsonConvert.SerializeObject(evaluatedTemplate, Formatting.Indented));
